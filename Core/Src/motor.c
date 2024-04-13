@@ -141,6 +141,7 @@ void set_duty_cycle(int motor, double out){
 void Run_Now(double duty_1, double duty_2, double duty_3){
 	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, duty_1);
 	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_4, duty_2);
+	duty_3=rpm_to_duty(V3);
 	__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, duty_3);
 }
 void Rotation(int motor, int rotation){

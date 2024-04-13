@@ -38,7 +38,7 @@ extern "C" {
 #include "cmsis_os.h"
 #include "uartstdio.h"
 #include "ctype.h"
-#include "pca9685.h"
+//#include "pca9685.h"
 //#include "pca9685.h"
 /* USER CODE END Includes */
 
@@ -84,7 +84,7 @@ extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim9;
 
-extern UART_HandleTypeDef huart3;
+extern UART_HandleTypeDef huart5;
 
 extern PID_Param_t pid;
 extern void pid_config(void);

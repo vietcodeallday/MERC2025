@@ -41,8 +41,6 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
@@ -82,7 +80,6 @@ static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_TIM9_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
 void StartControl(void *argument);
 void StartPID(void *argument);
@@ -97,11 +94,14 @@ PID_Param_t pid;
 double out_1, out_2, out_3=0;
 double rpm_1, rpm_2, rpm_3=0;
 bool flag_Vd=false;
-bool flag_gripper=false;
 bool flag_x=false;
+bool flag_i=false;
+
 double Vd=0;
-int gripper_mode=0;
 uint8_t rx_data;
+bool flag_servo_p=false;
+bool flag_servo_d=false;
+bool flag_servo_y=false;
 
 void pid_config(void){
 	pid.Kp=0.3;
@@ -165,10 +165,9 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM5_Init();
   MX_TIM9_Init();
-  MX_I2C1_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
-  PCA9685_Init(&hi2c1);
+//  PCA9685_Init(&hi2c1);
 
   	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, 100);
   	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_4, 100); //motor 2
@@ -296,40 +295,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -611,7 +576,7 @@ static void MX_UART5_Init(void)
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
+  huart5.Init.BaudRate = 9600;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
@@ -645,7 +610,6 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, DIRECTION_3_Pin|DIRECTION_2_Pin|DIRECTION_1_Pin, GPIO_PIN_RESET);
@@ -662,55 +626,60 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void Control(msgQueueObj_t msg, double Vd, int gripper_mode){
+void Control(msgQueueObj_t msg, double Vd){
 	switch(msg.buffer[0]){
 	case 'W':
-		Robot_Move(Vd, 0, 0);
+		Robot_Move(Vd, 60, 0);
 		break;
 	case 'B':
-		Robot_Move(Vd, 180, 0);
+		Robot_Move(Vd, 240, 0);
 		break;
 	case 'R':
-		Robot_Move(Vd, 270, 0);
+		Robot_Move(Vd, 330, 0);
 		break;
 	case 'L':
-		Robot_Move(Vd, 90, 0);
+		Robot_Move(Vd, 150, 0);
 		break;
 	case 'H':
-		Robot_Move(Vd, 315, 0);
+		Robot_Move(Vd, 15, 0);
 		break;
 	case 'Q':
-		Robot_Move(Vd, 45, 0);
+		Robot_Move(Vd, 105, 0);
 		break;
 	case 'Z':
-		Robot_Move(Vd, 135, 0);
+		Robot_Move(Vd, 195, 0);
 		break;
 	case 'V':
-		Robot_Move(Vd, 225, 0);
+		Robot_Move(Vd, 285, 0);
 		break;
 	case 'X':
-		flag_x=!flag_x;
-		if(flag_x){
-			Robot_Move(0, 0, 0.5);
-		}else Robot_Move(0, 0, 0);
+		Robot_Move(0, 0, 0.3);
+		break;
+	case 'I':
+		Robot_Move(0, 0, -0.3);
 		break;
 	case 'S':
 		Robot_Move(0, 0, 0);
+//		PCA9685_SetServoAngle(1, 90);
 		break;
 	case 'J':
 		flag_Vd=true;
 		break;
-	case 'K':
-		flag_gripper=true;
-		break;
-	case 'P'://tay 0
-		if(gripper_mode==0)PCA9685_SetServoAngle(0, 200);
-		else if(gripper_mode==1)PCA9685_SetServoAngle(0, 71);
-		break;
-	case 'D'://tay 1
-		if(gripper_mode==0)PCA9685_SetServoAngle(1, 200);
-		else if(gripper_mode==1)PCA9685_SetServoAngle(1, 71);
-		break;
+//	case 'Y':
+//		flag_servo_y=!flag_servo_y;
+//		if(flag_servo_y){
+//			PCA9685_SetServoAngle(2, 71);
+//		}else PCA9685_SetServoAngle(2, 90);
+//		break;
+//	case 'P'://tay 0
+//		PCA9685_SetServoAngle(0, 200);
+//		break;
+//	case 'D':
+//		PCA9685_SetServoAngle(0, 71);
+//		break;
+//	case 'F':
+//		PCA9685_SetServoAngle(1, 71);
+//		break;
 	default:
 		break;
 	}
@@ -730,40 +699,23 @@ void StartControl(void *argument)
   /* USER CODE BEGIN 5 */
 	msgQueueObj_t msg;
 	osStatus_t status;
-	int Vd_msg, gripper_msg=0;
+	int Vd_msg=0;
 
   /* Infinite loop */
   for(;;)
   {
-//	  vTaskSuspend(CONTROLHandle);
-//	  Robot_Move(1, 225, 0);
-//	  UARTprintf("task1\r\n");
 	  status = osMessageQueueGet(myButtonsHandle, &msg, NULL, 0);   // wait for message
 	  if (status == osOK) {
-//		UARTprintf("msg is: %c \r\n", msg.buffer[0]); // process data
-		if(isdigit((int)msg.buffer[0])){
 		  if(flag_Vd){
+			if(isdigit((int)msg.buffer[0])){
 			Vd_msg=(int)(msg.buffer[0]-'0');
 			flag_Vd=false;
-			Vd=(double)Vd_msg/(double)3;
+			Vd=(double)Vd_msg/(double)5;
 
-//			if(Vd>0&&Vd<1){
-//				UARTprintf("true Vd \r\n");
-//			}else UARTprintf("false Vd \r\n");
 		  }
-		  if(flag_gripper){
-			gripper_msg=(int)(msg.buffer[0]-'0');
-			flag_gripper=false;
-			gripper_mode=gripper_msg;
-
-//			if(Vtheta>0&&Vtheta<1){
-//				UARTprintf("true Vtheta \r\n");
-//			}else UARTprintf("false Vtheta \r\n");
-		  }
-
 		}
 
-		Control(msg, Vd, gripper_mode);
+		Control(msg, Vd);
 
 	  }
     osDelay(50);
