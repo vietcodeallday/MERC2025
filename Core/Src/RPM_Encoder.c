@@ -30,7 +30,7 @@ double get_rpm(int motor){
 //	uint32_t a= osKernelSysTick();
 //	UARTprintf("tick: %d \n",a);
 
-	while(xTaskGetTickCount()- a <= 20){
+	while(xTaskGetTickCount()- a <= 10){
 		switch (motor){
 		case MOTOR_1:
 			cnt = __HAL_TIM_GET_COUNTER(&htim1);
@@ -47,8 +47,8 @@ double get_rpm(int motor){
 		CountLoop(cnt, flag_rot);
 	}
 //	UARTprintf("loop: %d, \t cnt: %d \r\n",loop,cnt);
-	rpm= ((double)loop*65000+((flag_rot)?(double)(65535-cnt):(double)cnt))/47000*50*60;
-	rpm=(rpm>1000)?0:rpm;
+	rpm= ((double)loop*65000+((flag_rot)?(double)(65535-cnt):(double)cnt))/47000*100*60;
+//	rpm=(rpm>1000)?0:rpm;
 	return rpm;
 }
 void CountLoop(uint16_t cnt, bool flag){

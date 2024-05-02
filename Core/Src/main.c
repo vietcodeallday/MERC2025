@@ -41,13 +41,16 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
+SPI_HandleTypeDef hspi3;
+
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim9;
-
-UART_HandleTypeDef huart5;
 
 /* Definitions for CONTROL */
 osThreadId_t CONTROLHandle;
@@ -63,11 +66,6 @@ const osThreadAttr_t PID_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for myButtons */
-osMessageQueueId_t myButtonsHandle;
-const osMessageQueueAttr_t myButtons_attributes = {
-  .name = "myButtons"
-};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -80,7 +78,9 @@ static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_TIM9_Init(void);
-static void MX_UART5_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_SPI3_Init(void);
+static void MX_TIM2_Init(void);
 void StartControl(void *argument);
 void StartPID(void *argument);
 
@@ -93,15 +93,15 @@ void StartPID(void *argument);
 PID_Param_t pid;
 double out_1, out_2, out_3=0;
 double rpm_1, rpm_2, rpm_3=0;
-bool flag_Vd=false;
-bool flag_x=false;
-bool flag_i=false;
 
 double Vd=0;
+double Theta=0;
+
+uint8_t select_hand=5;
+uint8_t flag_V=0;
 uint8_t rx_data;
-bool flag_servo_p=false;
-bool flag_servo_d=false;
-bool flag_servo_y=false;
+
+
 
 void pid_config(void){
 	pid.Kp=0.3;
@@ -165,14 +165,22 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM5_Init();
   MX_TIM9_Init();
-  MX_UART5_Init();
+  MX_I2C1_Init();
+  MX_SPI3_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-//  PCA9685_Init(&hi2c1);
+  PCA9685_Init(&hi2c1);
 
-  	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, 100);
+  	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, 100); //motor 1
   	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_4, 100); //motor 2
   	__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, 100); //motor 3
-//
+
+
+	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_3, 100);
+	__HAL_TIM_SetCompare(&htim2, TIM_CHANNEL_4, 100);
+	__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_2, 100);
+
+
 //  	HAL_GPIO_WritePin(DIRECTION_1_GPIO_Port, DIRECTION_1_Pin, GPIO_PIN_SET);
 //  	HAL_GPIO_WritePin(DIRECTION_2_GPIO_Port, DIRECTION_2_Pin, GPIO_PIN_SET);
 //  	HAL_GPIO_WritePin(DIRECTION_3_GPIO_Port, DIRECTION_3_Pin, GPIO_PIN_SET);
@@ -182,19 +190,18 @@ int main(void)
     HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_4);
     HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1);
 
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+    HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
+
+
     HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_1 | TIM_CHANNEL_2);
     HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_1 | TIM_CHANNEL_2);
     HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_1 | TIM_CHANNEL_2);
 
 //    UARTStdioConfig(USART2,true);
 
-    __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
-
-//    PCA9685_Init(&hi2c1);
-//    PCA9685_SetServoAngle(0, 0);
-//    PCA9685_SetServoAngle(1, 0);
-//    PCA9685_SetServoAngle(2, 0);
-//    PCA9685_SetServoAngle(3, 0);
+//    __HAL_UART_ENABLE_IT(&huart5, UART_IT_RXNE);
 
   /* USER CODE END 2 */
 
@@ -212,10 +219,6 @@ int main(void)
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
-
-  /* Create the queue(s) */
-  /* creation of myButtons */
-  myButtonsHandle = osMessageQueueNew (200, sizeof(char), &myButtons_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -288,13 +291,85 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV8;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief SPI3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI3_Init(void)
+{
+
+  /* USER CODE BEGIN SPI3_Init 0 */
+
+  /* USER CODE END SPI3_Init 0 */
+
+  /* USER CODE BEGIN SPI3_Init 1 */
+
+  /* USER CODE END SPI3_Init 1 */
+  /* SPI3 parameter configuration*/
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_LSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI3_Init 2 */
+
+  /* USER CODE END SPI3_Init 2 */
+
 }
 
 /**
@@ -344,6 +419,69 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 100-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 
@@ -553,43 +691,14 @@ static void MX_TIM9_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_ConfigChannel(&htim9, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM9_Init 2 */
 
   /* USER CODE END TIM9_Init 2 */
   HAL_TIM_MspPostInit(&htim9);
-
-}
-
-/**
-  * @brief UART5 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART5_Init(void)
-{
-
-  /* USER CODE BEGIN UART5_Init 0 */
-
-  /* USER CODE END UART5_Init 0 */
-
-  /* USER CODE BEGIN UART5_Init 1 */
-
-  /* USER CODE END UART5_Init 1 */
-  huart5.Instance = UART5;
-  huart5.Init.BaudRate = 9600;
-  huart5.Init.WordLength = UART_WORDLENGTH_8B;
-  huart5.Init.StopBits = UART_STOPBITS_1;
-  huart5.Init.Parity = UART_PARITY_NONE;
-  huart5.Init.Mode = UART_MODE_RX;
-  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART5_Init 2 */
-
-  /* USER CODE END UART5_Init 2 */
 
 }
 
@@ -608,11 +717,26 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SS_GPIO_Port, SS_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, DIRECTION_3_Pin|DIRECTION_2_Pin|DIRECTION_1_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, L298_IN1_Pin|L298_IN2_Pin|L298_IN3_Pin|L298_IN4_Pin
+                          |L298_IN5_Pin|L298_IN6_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : SS_Pin */
+  GPIO_InitStruct.Pin = SS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : DIRECTION_3_Pin DIRECTION_2_Pin DIRECTION_1_Pin */
   GPIO_InitStruct.Pin = DIRECTION_3_Pin|DIRECTION_2_Pin|DIRECTION_1_Pin;
@@ -621,69 +745,136 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : L298_IN1_Pin L298_IN2_Pin L298_IN3_Pin L298_IN4_Pin
+                           L298_IN5_Pin L298_IN6_Pin */
+  GPIO_InitStruct.Pin = L298_IN1_Pin|L298_IN2_Pin|L298_IN3_Pin|L298_IN4_Pin
+                          |L298_IN5_Pin|L298_IN6_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-void Control(msgQueueObj_t msg, double Vd){
-	switch(msg.buffer[0]){
-	case 'W':
-		Robot_Move(Vd, 60, 0);
+void Moving(uint8_t PSX_RX, double Vd, double Theta){
+	if(flag_V==1) Vd /= 1000.0f;
+	else if(flag_V==0) Vd /= 300.0f;
+	Robot_Move(Vd, Theta,0);
+	switch(PSX_RX){
+	case Rotate_180:
+		PCA9685_SetServoAngle(7, 200);
 		break;
-	case 'B':
-		Robot_Move(Vd, 240, 0);
+	case Rotate_mn180:
+		PCA9685_SetServoAngle(7, 71);
 		break;
-	case 'R':
-		Robot_Move(Vd, 330, 0);
-		break;
-	case 'L':
-		Robot_Move(Vd, 150, 0);
-		break;
-	case 'H':
-		Robot_Move(Vd, 15, 0);
-		break;
-	case 'Q':
-		Robot_Move(Vd, 105, 0);
-		break;
-	case 'Z':
-		Robot_Move(Vd, 195, 0);
-		break;
-	case 'V':
-		Robot_Move(Vd, 285, 0);
-		break;
-	case 'X':
-		Robot_Move(0, 0, 0.3);
-		break;
-	case 'I':
+	case Rotate_Right:
 		Robot_Move(0, 0, -0.3);
 		break;
-	case 'S':
-		Robot_Move(0, 0, 0);
-//		PCA9685_SetServoAngle(1, 90);
+	case Rotate_Left:
+		Robot_Move(0, 0, 0.3);
 		break;
-	case 'J':
-		flag_Vd=true;
-		break;
-//	case 'Y':
-//		flag_servo_y=!flag_servo_y;
-//		if(flag_servo_y){
-//			PCA9685_SetServoAngle(2, 71);
-//		}else PCA9685_SetServoAngle(2, 90);
+//		case Forward:
+//			Robot_Move(Vd, 60, 0);
+//			break;
+//		case Backward:
+//			Robot_Move(Vd, 240, 0);
+//			break;
+//		case Right:
+//			Robot_Move(Vd, 330, 0);
+//			break;
+//		case Left:
+//			Robot_Move(Vd, 150, 0);
+//			break;
+//		case Forward_Right:
+//			Robot_Move(Vd, 15, 0);
+//			break;
+//		case Forward_Left:
+//			Robot_Move(Vd, 105, 0);
+//			break;
+//		case Backward_Left:
+//			Robot_Move(Vd, 195, 0);
+//			break;
+//		case Backward_Right:
+//			Robot_Move(Vd, 285, 0);
+//			break;
+////		case IDLE:
+////			Robot_Move(0, 0, 0);
+////	//		PCA9685_SetServoAngle(1, 90);
+////			break;
+//		case Select_Hand:
+//			//doi tay
+//			break;
+//		default:
+//			break;
+//	default:
+//		if(select_hand==1){
+//			PCA9685_SetServoAngle(1, 89);
+//		}
+////		if(select_hand==2){
+////			PCA9685_SetServoAngle(3, 90);
+////		}
+////		if(select_hand==3){
+////			PCA9685_SetServoAngle(5, 89);
+////		}
 //		break;
-//	case 'P'://tay 0
-//		PCA9685_SetServoAngle(0, 200);
-//		break;
-//	case 'D':
-//		PCA9685_SetServoAngle(0, 71);
-//		break;
-//	case 'F':
-//		PCA9685_SetServoAngle(1, 71);
-//		break;
-	default:
-		break;
 	}
 }
+void Hand(uint8_t PSX_RX){
+	switch(PSX_RX){
+	case Fast:
+		flag_V=0;
+		break;
+	case Slow:
+		flag_V=1;
+		break;
+	case Lift:
+		HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_RESET);
+		break;
+	case Down:
+		HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_SET);
+		break;
+	case Open://tay 0
+		PCA9685_SetServoAngle(3, 200);
+		break;
+	case Close:
+		PCA9685_SetServoAngle(3, 70);
+		break;
+	default:
+		HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_RESET);
+
+		PCA9685_SetServoAngle(7, 90.5);
+		PCA9685_SetServoAngle(3, 87);
+
+		break;
+	}
+
+}
+void Calculate_angle(double LX, double LY) {
+
+    double angle_rad = atan(LY / LX);
+    Theta = angle_rad * (180.0f / PI)-30.0f;
+    if(LX < 0)Theta += 180.0f;
+    if(LX >= 0 && LY < 0)Theta += 360.0f;
+    if(Theta<0) Theta+=360.0f;
+}
+
+void Caculate_Vd(uint8_t PSX_RX[]){
+	int8_t LX=PSX_RX[7];
+	int8_t LY=PSX_RX[8];
+
+	LX=LX-128;
+	LY=127-LY;
+
+	Vd=(fabs(LX)>=fabs(LY))?fabs(LX):fabs(LY);
+	Calculate_angle((double)LX, (double)LY);
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartControl */
@@ -697,28 +888,23 @@ void Control(msgQueueObj_t msg, double Vd){
 void StartControl(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	msgQueueObj_t msg;
-	osStatus_t status;
-	int Vd_msg=0;
 
   /* Infinite loop */
   for(;;)
   {
-	  status = osMessageQueueGet(myButtonsHandle, &msg, NULL, 0);   // wait for message
-	  if (status == osOK) {
-		  if(flag_Vd){
-			if(isdigit((int)msg.buffer[0])){
-			Vd_msg=(int)(msg.buffer[0]-'0');
-			flag_Vd=false;
-			Vd=(double)Vd_msg/(double)5;
-
-		  }
-		}
-
-		Control(msg, Vd);
-
-	  }
-    osDelay(50);
+	uint8_t PSX_RX[9]= { 0x00 };
+	uint8_t PSX_TX[2] = {
+		0x01, 0x42
+	};
+	spi_enable;
+	HAL_SPI_TransmitReceive(&hspi3, PSX_TX, PSX_RX, 9, 10);
+	spi_disable;
+	if(PSX_RX[1]==0x73){
+		Caculate_Vd(PSX_RX);
+		Hand(PSX_RX[4]);
+		Moving(PSX_RX[3],Vd,Theta);
+	}
+	osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -736,10 +922,9 @@ void StartPID(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  PID();
-//	  UARTprintf("task2\r\n");
 
-    osDelay(10);
+	PID();
+	osDelay(50);
   }
   /* USER CODE END StartPID */
 }

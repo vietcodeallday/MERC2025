@@ -58,7 +58,6 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim1;
-extern UART_HandleTypeDef huart5;
 extern TIM_HandleTypeDef htim10;
 
 /* USER CODE BEGIN EV */
@@ -176,32 +175,6 @@ void TIM1_UP_TIM10_IRQHandler(void)
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 1 */
-}
-
-/**
-  * @brief This function handles UART5 global interrupt.
-  */
-void UART5_IRQHandler(void)
-{
-  /* USER CODE BEGIN UART5_IRQn 0 */
-	msgQueueObj_t msg;
-	msg.buffer_index=0;
-//
-//    UARTgets(msg.buffer,10);
-	HAL_UART_Receive(&huart5, (uint8_t*)&msg.buffer[msg.buffer_index++], sizeof(msg.buffer),0);
-//	UARTprintf("msg.buffer: %c \r\n",(char)msg.buffer[0]);
-	osMessageQueuePut(myButtonsHandle, &msg, 0, 0);
-
-//	memset(&msg.buffer, 0, sizeof(msg.buffer));
-
-	BaseType_t checkIfYieldRequired;
-	checkIfYieldRequired = xTaskResumeFromISR(CONTROLHandle);
-	portYIELD_FROM_ISR(checkIfYieldRequired);
-  /* USER CODE END UART5_IRQn 0 */
-  HAL_UART_IRQHandler(&huart5);
-  /* USER CODE BEGIN UART5_IRQn 1 */
-
-  /* USER CODE END UART5_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

@@ -27,29 +27,28 @@
 double V1, V2, V3;
 double duty_V1, duty_V2, duty_V3;
 
-bool flag_rot_1=true,
-flag_rot_2=true,
-flag_rot_3=true;
+bool flag_rot_1=true, flag_rot_2=true, flag_rot_3=true;
 
 double prev_duty_1=100, prev_duty_2=100, prev_duty_3=100;
 double duty=100;
+
 void Robot_Move(double Vd, double Theta, double Vtheta){
 	double V1_abs, V2_abs, V3_abs, Vmax, Temp;
 
-	V2=Vd*(-0.87*cos(Theta*PI/180)-0.5*sin(Theta*PI/180))+Vtheta;
-	V3=Vd*(0.87*cos(Theta*PI/180)-0.5*sin(Theta*PI/180))+Vtheta;
+	V2=Vd*(-0.87*cos(Theta*PI/180)-0.5f*sin(Theta*PI/180))+Vtheta;
+	V3=Vd*(0.87*cos(Theta*PI/180)-0.5f*sin(Theta*PI/180))+Vtheta;
 	V1=Vd*sin(Theta*PI/180)+Vtheta;
 
 	V1_abs=fabs(V1);
 	V2_abs=fabs(V2);
 	V3_abs=fabs(V3);
 
-	Vmax=V1_abs;
+	Vmax = V1_abs;
 	Vmax = (V2_abs > Vmax) ? V2_abs : Vmax;
 	Vmax = (V3_abs > Vmax) ? V3_abs : Vmax;
 
-	if (Vmax>1){
-	Temp=(double)1/Vmax;
+	if (Vmax>3){
+	Temp=3/Vmax;
 		V1= V1*Temp;
 		V2= V2*Temp;
 		V3= V3*Temp;
@@ -91,16 +90,6 @@ void Robot_Move(double Vd, double Theta, double Vtheta){
 	V3=v2rpm(V3);
 	pid_config();
 
-	//	duty_V1=rpm_to_duty(V1);
-//	duty_V2=rpm_to_duty(V2);
-//	duty_V3=rpm_to_duty(V3);
-//
-//	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, duty_V1);
-//	prev_duty_1=duty_V1;
-//	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_4, duty_V2);
-//	prev_duty_2=duty_V2;
-//	__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, duty_V3);
-//	prev_duty_3=duty_V3;
 }
 double rpm_to_duty(double rpm){
 	double duty=(98.15-0.6*rpm);
@@ -119,29 +108,14 @@ void set_duty_cycle(int motor, double out){
 		prev_duty_3=prev_duty_3-out;
 		prev_duty_3=(prev_duty_3>100)?100:((prev_duty_3<0)?0:prev_duty_3);
 	}
-
-//	duty=prev_duty-out;
-//	if(duty>100){duty=100;}
-//	if(duty<0){duty=0;}
-//
-//	if(motor==MOTOR_1){
-////		UARTprintf("duty_1: %d \r\n", (uint8_t)duty);
-//		__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, duty);
-//		prev_duty_1=duty;
-//	}
-//	else if(motor==MOTOR_2){
-//		__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_4, duty);
-//		prev_duty_2=duty;
-//	}
-//	else if(motor==MOTOR_3){
-//		__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, duty);
-//		prev_duty_3=duty;
-//	}
 }
 void Run_Now(double duty_1, double duty_2, double duty_3){
+//	duty_1=rpm_to_duty(V1);
+//	duty_2=rpm_to_duty(V2);
+//	duty_3=rpm_to_duty(V3);
+
 	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_3, duty_1);
 	__HAL_TIM_SetCompare(&htim5, TIM_CHANNEL_4, duty_2);
-	duty_3=rpm_to_duty(V3);
 	__HAL_TIM_SetCompare(&htim9, TIM_CHANNEL_1, duty_3);
 }
 void Rotation(int motor, int rotation){
