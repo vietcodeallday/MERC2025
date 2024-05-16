@@ -24,7 +24,7 @@
 #define SERVO_MIN	110
 #define SERVO_MAX	500
 #define MIN_ANGLE	0.0
-#define MAX_ANGLE	180.0
+#define MAX_ANGLE	360.0
 #endif
 
 //

@@ -103,8 +103,8 @@ void Error_Handler(void);
 //#define Backward_Left 0x3f
 //#define Backward_Right 0x9f
 
-//#define Select_Hand_1 0xfe
-//#define Select_Hand_2 0xfd
+#define Select_Hand_1 0xfe
+#define Select_Hand_2 0xfd
 //#define Select_Hand_3 0xfb
 
 
@@ -121,6 +121,9 @@ void Error_Handler(void);
 
 #define Fast 0xf7
 #define Slow 0xfb
+
+#define true 1
+#define false 0
 extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim1;

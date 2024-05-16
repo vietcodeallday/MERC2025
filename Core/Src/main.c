@@ -98,7 +98,7 @@ double Vd=0;
 double Theta=0;
 
 uint8_t select_hand=5;
-uint8_t flag_V=0;
+uint8_t flag_V_slow=false;
 uint8_t rx_data;
 
 
@@ -184,7 +184,6 @@ int main(void)
 //  	HAL_GPIO_WritePin(DIRECTION_1_GPIO_Port, DIRECTION_1_Pin, GPIO_PIN_SET);
 //  	HAL_GPIO_WritePin(DIRECTION_2_GPIO_Port, DIRECTION_2_Pin, GPIO_PIN_SET);
 //  	HAL_GPIO_WritePin(DIRECTION_3_GPIO_Port, DIRECTION_3_Pin, GPIO_PIN_SET);
-
 
     HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_3);
     HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_4);
@@ -760,15 +759,17 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void Moving(uint8_t PSX_RX, double Vd, double Theta){
-	if(flag_V==1) Vd /= 1000.0f;
-	else if(flag_V==0) Vd /= 300.0f;
+	if(flag_V_slow==true) Vd /= 1000.0f;
+	else if(flag_V_slow==false) Vd /= 200.0f;
 	Robot_Move(Vd, Theta,0);
 	switch(PSX_RX){
 	case Rotate_180:
-		PCA9685_SetServoAngle(7, 200);
+		if(select_hand==1) PCA9685_SetServoAngle(0, 360);
+		if(select_hand==2) PCA9685_SetServoAngle(6, 360);
 		break;
 	case Rotate_mn180:
-		PCA9685_SetServoAngle(7, 71);
+		if(select_hand==1) PCA9685_SetServoAngle(0, 0);
+		if(select_hand==2) PCA9685_SetServoAngle(6, 0);
 		break;
 	case Rotate_Right:
 		Robot_Move(0, 0, -0.3);
@@ -776,81 +777,62 @@ void Moving(uint8_t PSX_RX, double Vd, double Theta){
 	case Rotate_Left:
 		Robot_Move(0, 0, 0.3);
 		break;
-//		case Forward:
-//			Robot_Move(Vd, 60, 0);
-//			break;
-//		case Backward:
-//			Robot_Move(Vd, 240, 0);
-//			break;
-//		case Right:
-//			Robot_Move(Vd, 330, 0);
-//			break;
-//		case Left:
-//			Robot_Move(Vd, 150, 0);
-//			break;
-//		case Forward_Right:
-//			Robot_Move(Vd, 15, 0);
-//			break;
-//		case Forward_Left:
-//			Robot_Move(Vd, 105, 0);
-//			break;
-//		case Backward_Left:
-//			Robot_Move(Vd, 195, 0);
-//			break;
-//		case Backward_Right:
-//			Robot_Move(Vd, 285, 0);
-//			break;
-////		case IDLE:
-////			Robot_Move(0, 0, 0);
-////	//		PCA9685_SetServoAngle(1, 90);
-////			break;
-//		case Select_Hand:
-//			//doi tay
-//			break;
-//		default:
-//			break;
-//	default:
-//		if(select_hand==1){
-//			PCA9685_SetServoAngle(1, 89);
-//		}
-////		if(select_hand==2){
-////			PCA9685_SetServoAngle(3, 90);
-////		}
-////		if(select_hand==3){
-////			PCA9685_SetServoAngle(5, 89);
-////		}
-//		break;
 	}
 }
 void Hand(uint8_t PSX_RX){
 	switch(PSX_RX){
+	case Select_Hand_1:
+		select_hand=1;
+		break;
+	case Select_Hand_2:
+		select_hand=2;
+		break;
 	case Fast:
-		flag_V=0;
+		flag_V_slow=false;
 		break;
 	case Slow:
-		flag_V=1;
+		flag_V_slow=true;
 		break;
 	case Lift:
-		HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_RESET);
+		if(select_hand==1){
+			HAL_GPIO_WritePin(L298_IN3_GPIO_Port, L298_IN3_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(L298_IN4_GPIO_Port, L298_IN4_Pin, GPIO_PIN_RESET);
+		}
+		if(select_hand==2){
+			HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_SET);
+		}
 		break;
 	case Down:
-		HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_SET);
+		if(select_hand==1){
+			HAL_GPIO_WritePin(L298_IN3_GPIO_Port, L298_IN3_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(L298_IN4_GPIO_Port, L298_IN4_Pin, GPIO_PIN_SET);
+		}
+		if(select_hand==2){
+			HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_RESET);
+		}
 		break;
 	case Open://tay 0
-		PCA9685_SetServoAngle(3, 200);
+		if(select_hand==1)	PCA9685_SetServoAngle(2, 360);
+
+		if(select_hand==2)	PCA9685_SetServoAngle(4, 360);
 		break;
 	case Close:
-		PCA9685_SetServoAngle(3, 70);
+		if(select_hand==1)	PCA9685_SetServoAngle(2, 0);
+		if(select_hand==2)	PCA9685_SetServoAngle(4, 0);
+
 		break;
 	default:
 		HAL_GPIO_WritePin(L298_IN1_GPIO_Port, L298_IN1_Pin, GPIO_PIN_RESET);
 		HAL_GPIO_WritePin(L298_IN2_GPIO_Port, L298_IN2_Pin, GPIO_PIN_RESET);
-
-		PCA9685_SetServoAngle(7, 90.5);
-		PCA9685_SetServoAngle(3, 87);
-
+		HAL_GPIO_WritePin(L298_IN3_GPIO_Port, L298_IN3_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L298_IN4_GPIO_Port, L298_IN4_Pin, GPIO_PIN_RESET);
+		if(select_hand==1){
+			PCA9685_SetServoAngle(0, 181);
+			PCA9685_SetServoAngle(2, 87);
+		}
+		if(select_hand==2)	PCA9685_SetServoAngle(6, 180);
 		break;
 	}
 
@@ -904,7 +886,9 @@ void StartControl(void *argument)
 		Hand(PSX_RX[4]);
 		Moving(PSX_RX[3],Vd,Theta);
 	}
-	osDelay(100);
+
+		osDelay(100);
+
   }
   /* USER CODE END 5 */
 }
